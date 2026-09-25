@@ -6,6 +6,7 @@ import androidx.activity.compose.setContent
 import androidx.compose.material3.Button
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -21,14 +22,20 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         setContent {
             ShutterlingTheme {
-                getCameraApi()
+                ShowCaptureButton()
             }
         }
     }
 }
 
 @Composable
-fun getCameraApi() {
+fun ShowCaptureButton() {
+    LaunchedEffect(Unit) {
+        withContext(Dispatchers.IO) {
+            sendRequest("startRecMode")
+        }
+    }
+
     var response by remember {
         mutableStateOf("Nothing yet")
     }
@@ -38,11 +45,11 @@ fun getCameraApi() {
     Button(onClick = {
         scope.launch {
             response = withContext(Dispatchers.IO) {
-                getAvailableApiList()
+                sendRequest("actTakePicture")
             }
         }
     }) {
-        Text("GET APIS")
+        Text("TAKE PICTURE")
     }
 
     Text(response)
