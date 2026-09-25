@@ -1,5 +1,7 @@
 package com.example.shutterling
 
+import org.json.JSONObject
+import java.io.DataInputStream
 import java.net.HttpURLConnection
 import java.net.URL
 
@@ -20,4 +22,52 @@ fun sendRequest(method: String): String {
 
     val output = connection.inputStream.bufferedReader().use { it.readText() }
     return output
+}
+
+fun getLiveViewFrame(): ByteArray {
+    val response = sendRequest("startLiveview")
+
+    val json = JSONObject(response)
+    val liveViewUrl = json.getJSONArray("result").getString(0)
+
+    return readLiveViewFrame(liveViewUrl)
+}
+
+fun readLiveViewFrame(url: String): ByteArray {
+    val connection = URL(url).openConnection() as HttpURLConnection
+
+    connection.requestMethod = "GET"
+
+    val stream = DataInputStream(connection.inputStream)
+
+    val commonHeader = ByteArray(8)
+    stream.readFully(commonHeader)
+
+    val payloadHeader = ByteArray(128)
+    stream.readFully(payloadHeader)
+
+    val jpegSize = readUInt24BigEndian(payloadHeader, 4)
+
+    val jpegData = ByteArray(jpegSize)
+    stream.readFully(jpegData)
+
+    stream.close()
+
+    return jpegData
+}
+
+fun readUInt24BigEndian(bytes: ByteArray, offset: Int): Int {
+    // read bytes and convert them to unsigned 0-255 values
+    val first = bytes[offset].toInt() and 0xFF
+    val second = bytes[offset + 1].toInt() and 0xFF
+    val third = bytes[offset + 2].toInt() and 0xFF
+
+    // shl = shift left. moves each byte into correct position
+    val firstShifted = first shl 16
+    val secondShifted = second shl 8
+
+    // combine all three bytes into one integer
+    val value = firstShifted or secondShifted or third
+
+    return value
 }
