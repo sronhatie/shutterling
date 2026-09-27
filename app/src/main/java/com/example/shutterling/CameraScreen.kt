@@ -14,6 +14,7 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.graphics.asImageBitmap
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
@@ -26,16 +27,25 @@ fun CameraScreen() {
     val scope = rememberCoroutineScope()
 
     LaunchedEffect(Unit) {
-        bitmap = withContext(Dispatchers.IO) {
+        withContext(Dispatchers.IO) {
             sendRequest("startRecMode")
+        }
 
-            val jpegData = getLiveViewFrame()
+        val stream = withContext(Dispatchers.IO) {
+            openLiveViewStream()
+        }
 
-            BitmapFactory.decodeByteArray(
-                jpegData,
-                0,
-                jpegData.size
-            )
+        while (isActive) {
+            val newBitmap = withContext(Dispatchers.IO) {
+                val jpegData = readLiveViewFrame(stream)
+
+                BitmapFactory.decodeByteArray(
+                    jpegData,
+                    0,
+                    jpegData.size
+                )
+            }
+            bitmap = newBitmap
         }
     }
 

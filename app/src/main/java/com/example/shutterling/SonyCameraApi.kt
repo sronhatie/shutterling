@@ -20,40 +20,58 @@ fun sendRequest(method: String): String {
         it.write(body.toByteArray())
     }
 
-    val output = connection.inputStream.bufferedReader().use { it.readText() }
+    val output = connection.inputStream.bufferedReader().use {
+        it.readText()
+    }
+
     return output
 }
 
-fun getLiveViewFrame(): ByteArray {
+fun readLiveViewFrame(stream: DataInputStream): ByteArray {
+    /*
+    * Common Header is constructed of the following 8 Bytes.
+    * Start byte : 1 [B]
+    * Payload type : 1 [B]
+    * Sequence number : 2 [B]
+    * Time stamp : 4 [B]
+    * */
+    val commonHeader = ByteArray(8)
+    stream.readFully(commonHeader)
+
+    /*
+    * Payload header format will be as following 128 Bytes.
+    * Start code : 4[B]
+    * Payload data size without padding size : 3[B]
+    * Padding size : 1[B]
+    * Remaining 120 bytes depend on the payload type.
+    * */
+    val payloadHeader = ByteArray(128)
+    stream.readFully(payloadHeader)
+
+    val jpegSize = readUInt24BigEndian(payloadHeader, 4)
+    val paddingSize = payloadHeader[7].toInt() and 0xFF
+
+    val jpegData = ByteArray(jpegSize)
+    stream.readFully(jpegData)
+
+    if (paddingSize > 0) {
+        stream.skipBytes(paddingSize)
+    }
+
+    return jpegData
+}
+
+fun openLiveViewStream(): DataInputStream {
     val response = sendRequest("startLiveview")
 
     val json = JSONObject(response)
     val liveViewUrl = json.getJSONArray("result").getString(0)
 
-    return readLiveViewFrame(liveViewUrl)
-}
-
-fun readLiveViewFrame(url: String): ByteArray {
-    val connection = URL(url).openConnection() as HttpURLConnection
+    val connection = URL(liveViewUrl).openConnection() as HttpURLConnection
 
     connection.requestMethod = "GET"
 
-    val stream = DataInputStream(connection.inputStream)
-
-    val commonHeader = ByteArray(8)
-    stream.readFully(commonHeader)
-
-    val payloadHeader = ByteArray(128)
-    stream.readFully(payloadHeader)
-
-    val jpegSize = readUInt24BigEndian(payloadHeader, 4)
-
-    val jpegData = ByteArray(jpegSize)
-    stream.readFully(jpegData)
-
-    stream.close()
-
-    return jpegData
+    return DataInputStream(connection.inputStream)
 }
 
 fun readUInt24BigEndian(bytes: ByteArray, offset: Int): Int {
