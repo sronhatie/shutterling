@@ -32,27 +32,35 @@ import kotlinx.coroutines.withContext
 
 @Composable
 fun CameraScreen() {
+    // creates a Bitmap that can be null
+    // once it updates, changes the UI
     var bitmap by remember {
         mutableStateOf<Bitmap?>(null)
     }
 
+    // use this to launch and manage coroutines
     val scope = rememberCoroutineScope()
 
     // start the camera connection and live-view loop once
     LaunchedEffect(Unit) {
+        // switches the coroutine to I/O dispatcher
         withContext(Dispatchers.IO) {
             sendRequest("startRecMode")
         }
 
+        // saves the DataInputStream object
         val stream = withContext(Dispatchers.IO) {
             openLiveViewStream()
         }
 
+        // continuously reads images from the camera and updates the live preview
+        // isActive checks if the coroutine is still active
         while (isActive) {
             val newBitmap = withContext(Dispatchers.IO) {
+                // returns a ByteArray
                 val jpegData = readLiveViewFrame(stream)
 
-                // converts JPEG into android bitmap that can be displayed
+                // converts JPEG ByteArray into android bitmap that can be displayed
                 BitmapFactory.decodeByteArray(
                     jpegData,
                     0,
@@ -63,6 +71,7 @@ fun CameraScreen() {
         }
     }
 
+    // use column so the elements stack vertically instead of overlapping
     Column(
         modifier = Modifier.fillMaxSize(),
         horizontalAlignment = Alignment.CenterHorizontally
@@ -73,12 +82,15 @@ fun CameraScreen() {
                 .weight(1f),
             contentAlignment = Alignment.Center
         ) {
+            // only runs this if bitmap isn't null
             bitmap?.let {
                 Image(
+                    // it is the not null bitmap
                     bitmap = it.asImageBitmap(),
                     contentDescription = null,
                     modifier = Modifier
                         .requiredSize(
+                            // swap the width and height so it rotates by 90 degrees
                             width = maxHeight,
                             height = maxWidth
                         )
@@ -90,6 +102,7 @@ fun CameraScreen() {
 
         Button(
             onClick = {
+                // make a new coroutine and send the request in I/O thread
                 scope.launch(Dispatchers.IO) {
                     sendRequest("actTakePicture")
                 }
@@ -101,3 +114,5 @@ fun CameraScreen() {
         ) {}
     }
 }
+
+
